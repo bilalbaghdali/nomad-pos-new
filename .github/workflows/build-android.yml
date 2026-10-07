@@ -1,0 +1,35 @@
+name: Build Nomad POS APKs
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Build APKs
+        run: gradle :app:assembleDebug :activation:assembleDebug --stacktrace
+      - name: Prepare APKs
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Nomad-POS-v0.1.0.apk
+          cp activation/build/outputs/apk/debug/activation-debug.apk dist/Nomad-POS-Activation-v0.1.0.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nomad-POS-v0.1.0-APKs
+          path: dist/*.apk
+      - name: Publish review release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view v0.1.0 >/dev/null 2>&1 && gh release upload v0.1.0 dist/*.apk --clobber || gh release create v0.1.0 dist/*.apk --title "Nomad POS v0.1.0" --notes "First installable review build."
