@@ -2,6 +2,8 @@ name: Build Nomad POS APKs
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
@@ -22,15 +24,16 @@ jobs:
       - name: Prepare phone APKs
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/Nomad-POS-v0.3.0.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/Nomad-POS-v0.4.0.apk
           cp activation/build/outputs/apk/debug/activation-debug.apk dist/Nomad-POS-Activation-v0.1.0.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Nomad-POS-v0.3.0-APKs
+          name: Nomad-POS-v0.4.0-APKs
           path: dist/*.apk
           if-no-files-found: error
       - name: Publish review release
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view v0.3.0 >/dev/null 2>&1 && gh release upload v0.3.0 dist/*.apk --clobber || gh release create v0.3.0 dist/*.apk --title "Nomad POS v0.3.0 – Mobile UI" --notes "Mobile layout redesign, local inventory and sales with searchable card views. The APKs are debug-signed review builds; install on a fresh installation if your existing app has a different signing key. Back up app data before uninstalling."
+          gh release view v0.4.0 >/dev/null 2>&1 && gh release upload v0.4.0 dist/*.apk --clobber || gh release create v0.4.0 dist/*.apk --title "Nomad POS v0.4.0 – Mobile UI" --notes "Mobile print section, bilingual receipt preview, paper-size controls, Android printing and PDF output. The APKs are debug-signed review builds; install on a fresh installation if your existing app has a different signing key. Back up app data before uninstalling."

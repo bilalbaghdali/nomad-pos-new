@@ -2,6 +2,7 @@ package com.nomad.pos;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -39,7 +40,7 @@ import java.util.Map;
 
 /**
  * Nomad POS mobile-first native UI. This version stores product and sale data
- * locally; synchronization and fiscal receipt printing are not implemented.
+ * locally; synchronization and direct ESC/POS printer protocols are not implemented.
  */
 public class MainActivity extends Activity {
     private static final int BG=0xFFF4F7FA, WHITE=Color.WHITE, INK=0xFF152235,
@@ -48,7 +49,7 @@ public class MainActivity extends Activity {
     private static final int HOME=0, POS=1, STOCK=2, SALES=3, MORE=4,
             CUSTOMERS=5, SUPPLIERS=6, PURCHASES=7, EXPENSES=8, SHIFT=9,
             REPORTS=10, QUOTES=11, BARCODE=12, SETTINGS=13, ACTIVATE=14,
-            ABOUT=15, NEW_PRODUCT=16;
+            ABOUT=15, NEW_PRODUCT=16, PRINT=17;
     private final ArrayList<Product> products=new ArrayList<>();
     private final ArrayList<JSONObject> sales=new ArrayList<>();
     private final LinkedHashMap<Long,Integer> cart=new LinkedHashMap<>();
@@ -181,6 +182,7 @@ public class MainActivity extends Activity {
             case REPORTS:return "التقارير";
             case QUOTES:return "الفواتير المبدئية";
             case BARCODE:return "الباركود";
+            case PRINT:return "الطباعة";
             case SETTINGS:return "الإعدادات";
             case ACTIVATE:return "التفعيل";
             case ABOUT:return "حول البرنامج";
@@ -211,7 +213,7 @@ public class MainActivity extends Activity {
         TextView t=text(next==HOME?"Nomad POS":titleFor(next),21,INK,true);
         t.setMaxLines(1); t.setEllipsize(TextUtils.TruncateAt.END);
         heading.addView(t);
-        heading.addView(text(next==HOME?"إدارة تجارتك بسهولة  •  v0.3.0":"واجهة ملائمة للهاتف",12,SUB,false));
+        heading.addView(text(next==HOME?"إدارة تجارتك بسهولة  •  v0.4.0":"واجهة ملائمة للهاتف",12,SUB,false));
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(0,-2,1);
         hp.setMargins(dp(8),0,dp(8),0);
         header.addView(heading,hp);
@@ -243,6 +245,7 @@ public class MainActivity extends Activity {
             case EXPENSES:showPlaceholder("تسجيل المصاريف", "نظام حفظ المصاريف غير متاح في هذه النسخة التجريبية.");break;
             case QUOTES:showPlaceholder("الفواتير المبدئية", "إنشاء الفواتير المبدئية وتحويلها إلى فواتير بيع قيد التطوير.");break;
             case BARCODE:showBarcode();break;
+            case PRINT:showPrintHub();break;
             default:showPlaceholder(titleFor(next),"هذه الواجهة قيد التطوير.");
         }
         if(next==POS) {
@@ -317,8 +320,8 @@ public class MainActivity extends Activity {
             page.addView(alert,p);
         }
         caption("الوصول السريع");
-        int[] destinations={POS,STOCK,SALES,CUSTOMERS,SUPPLIERS,PURCHASES,QUOTES,REPORTS,SHIFT,SETTINGS};
-        String[] symbols={"▣","▤","▧","♙","▰","▥","▦","▥","◷","⚙"};
+        int[] destinations={POS,STOCK,SALES,CUSTOMERS,SUPPLIERS,PURCHASES,QUOTES,REPORTS,SHIFT,PRINT,SETTINGS};
+        String[] symbols={"▣","▤","▧","♙","▰","▥","▦","▥","◷","▨","⚙"};
         for(int i=0;i<destinations.length;i+=2) {
             LinearLayout r=row();
             for(int j=i;j<Math.min(i+2,destinations.length);j++) {
@@ -581,7 +584,9 @@ public class MainActivity extends Activity {
             r.addView(info,new LinearLayout.LayoutParams(0,-2,1));
             TextView sum=text(money(s.optDouble("total")),15,TEAL,true);
             r.addView(sum);
-            card.addView(r);page.addView(card);
+            card.addView(r);
+            addButton(card,"معاينة وطباعة الفاتورة",TINT,TEAL,v->launchPrint(s));
+            page.addView(card);
             card.setOnClickListener(v->{
                 StringBuilder b=new StringBuilder();
                 JSONArray lines=s.optJSONArray("lines");
@@ -654,14 +659,15 @@ public class MainActivity extends Activity {
         space(p,8);
         p.addView(text("الوضع: تخزين محلي على الهاتف",14,SUB,false));
         space(p,8);
-        p.addView(text("الإصدار: 0.3.0",14,SUB,false));
+        p.addView(text("الإصدار: 0.4.0",14,SUB,false));
         page.addView(p);
-        hint(page,"لا تتوفر مزامنة الكمبيوتر أو إعدادات الطباعة في هذه النسخة التجريبية.");
+        addButton(page,"إعدادات الطباعة ومعاينة الفواتير",TINT,TEAL,v->open(PRINT));
+        hint(page,"الطباعة عبر نظام أندرويد، والمزامنة مع الكمبيوتر غير متاحة بعد.");
     }
     private void showAbout(){
         caption("Nomad POS");
         LinearLayout p=panel();
-        p.addView(text("Nomad POS • v0.3.0",20,INK,true));
+        p.addView(text("Nomad POS • v0.4.0",20,INK,true));
         hint(p,"نسخة مهيأة للهواتف: بطاقات واضحة، تنقل سفلي مبسّط، ومخزون ومبيعات محفوظة محليًا.");
         page.addView(p);
         addButton(page,"معلومات التفعيل",WHITE,TEAL,v->open(ACTIVATE));
@@ -692,6 +698,33 @@ public class MainActivity extends Activity {
         hint(p,message);
         page.addView(p);
     }
+    private void launchPrint(JSONObject sale) {
+        Intent intent=new Intent(this,PrintActivity.class);
+        if(sale!=null)intent.putExtra("sale",sale.toString());
+        startActivity(intent);
+    }
+    private void showPrintHub() {
+        caption("الطباعة والمعاينة");
+        LinearLayout info=panel();
+        info.addView(text("معاينة فواتير البيع على الهاتف",17,INK,true));
+        hint(info,"اختر فاتورة محفوظة، ثم غيّر اللغة العربية أو الفرنسية وحجم الورق 58mm أو 80mm أو A4 قبل إرسالها للطباعة.");
+        page.addView(info);
+        if(sales.isEmpty()){
+            empty(page,"لا توجد فواتير للبيع. احفظ عملية بيع لتتمكن من معاينتها وطباعتها.");
+            addButton(page,"الذهاب إلى نقطة البيع",TEAL,WHITE,v->open(POS));
+            return;
+        }
+        caption("اختر الفاتورة");
+        for(JSONObject sale:sales) {
+            LinearLayout card=panel();
+            card.addView(text("فاتورة بيع • "+date(sale.optLong("date")),14,INK,true));
+            space(card,5);
+            card.addView(text(money(sale.optDouble("total")),17,TEAL,true));
+            addButton(card,"معاينة وطباعة",TINT,TEAL,v->launchPrint(sale));
+            page.addView(card);
+        }
+    }
+
     private void showMore(){
         caption("المبيعات والحسابات");
         menuRow("الزبائن",CUSTOMERS);menuRow("الموردون",SUPPLIERS);
@@ -699,6 +732,7 @@ public class MainActivity extends Activity {
         caption("إدارة المتجر");
         menuRow("المصاريف",EXPENSES);menuRow("المناوبة",SHIFT);
         menuRow("التقارير",REPORTS);menuRow("الباركود",BARCODE);
+        menuRow("الطباعة",PRINT);
         caption("التطبيق");
         menuRow("الإعدادات",SETTINGS);menuRow("التفعيل",ACTIVATE);
         menuRow("حول البرنامج",ABOUT);
