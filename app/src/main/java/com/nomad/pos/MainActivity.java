@@ -285,7 +285,7 @@ public class MainActivity extends Activity {
         box.setMinHeight(dp(94));
         TextView value=text(amount,20,TEAL,true);
         value.setMaxLines(2);
-        value.setAutoSizeTextTypeUniformWithConfiguration(13,20,1,1);
+        if(Build.VERSION.SDK_INT>=26) value.setAutoSizeTextTypeUniformWithConfiguration(13,20,1,1);
         box.addView(value,new LinearLayout.LayoutParams(-1,-2));
         space(box,4);
         box.addView(text(label,13,SUB,false));
