@@ -125,7 +125,7 @@ public class MainActivity extends Activity {
         TextView b=text(label,15,fg,true);
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(12),dp(10),dp(12),dp(10));
-        b.setMinHeight(dp(48));
+        b.setMinimumHeight(dp(48));
         b.setBackground(shape(bg,12,bg==WHITE?BORDER:0));
         b.setOnClickListener(action);
         return b;
@@ -145,7 +145,7 @@ public class MainActivity extends Activity {
         e.setHintTextColor(SUB);
         e.setInputType(inputType);
         e.setPadding(dp(14),0,dp(14),0);
-        e.setMinHeight(dp(52));
+        e.setMinimumHeight(dp(52));
         e.setBackground(shape(WHITE,12,BORDER));
         e.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         return e;
@@ -282,7 +282,7 @@ public class MainActivity extends Activity {
 
     private LinearLayout statsCard(String label,String amount) {
         LinearLayout box=panel();
-        box.setMinHeight(dp(94));
+        box.setMinimumHeight(dp(94));
         TextView value=text(amount,20,TEAL,true);
         value.setMaxLines(2);
         if(Build.VERSION.SDK_INT>=26) value.setAutoSizeTextTypeUniformWithConfiguration(13,20,1,1);
@@ -388,7 +388,7 @@ public class MainActivity extends Activity {
         if(count==0)empty(target,query.isEmpty()?"لا توجد منتجات بعد. أضف أول منتج للبدء.":"لا توجد نتائج مطابقة.");
     }
     private void empty(LinearLayout parent,String msg){
-        LinearLayout p=panel();p.setGravity(Gravity.CENTER);p.setMinHeight(dp(120));
+        LinearLayout p=panel();p.setGravity(Gravity.CENTER);p.setMinimumHeight(dp(120));
         TextView t=text(msg,15,SUB,false);t.setGravity(Gravity.CENTER);p.addView(t);
         parent.addView(p);
     }
