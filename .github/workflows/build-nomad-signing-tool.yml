@@ -1,0 +1,71 @@
+name: Build Nomad Android Signing Tool
+on:
+  push:
+    branches: [android-signing-tool]
+    paths:
+      - 'android-signing-tool/**'
+      - '.github/workflows/build-nomad-signing-tool.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android SDK
+        shell: bash
+        run: |
+          set -e
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort | tail -n 1)"
+          test -x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Verify PKCS12 generation with JDK keytool
+        working-directory: android-signing-tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p tests/classes
+          javac -d tests/classes app/src/main/java/com/nomad/tools/signing/SigningKeyUtil.java tests/SigningKeyTest.java
+          java -cp tests/classes SigningKeyTest "$RUNNER_TEMP/nomad-tool-test.p12"
+          keytool -list -keystore "$RUNNER_TEMP/nomad-tool-test.p12" -storetype PKCS12 -storepass 'DemoStrongPass2026!' -alias nomadpos
+      - name: Build APK
+        working-directory: android-signing-tool
+        run: gradle --no-daemon --stacktrace :app:assembleDebug
+      - name: Validate APK and record SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          cp android-signing-tool/app/build/outputs/apk/debug/app-debug.apk output/Nomad-POS-Android-Signing-Tool-v1.0.0.apk
+          (cd output && sha256sum Nomad-POS-Android-Signing-Tool-v1.0.0.apk > SHA256.txt)
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging output/Nomad-POS-Android-Signing-Tool-v1.0.0.apk | head -6
+          if "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions output/Nomad-POS-Android-Signing-Tool-v1.0.0.apk | grep -q 'android.permission.INTERNET'; then
+            echo "Unexpected INTERNET permission"; exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nomad-Android-Signing-Tool-v1.0.0
+          path: output/*
+          if-no-files-found: error
+      - name: Release standalone tool APK
+        if: github.ref == 'refs/heads/android-signing-tool'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG=signing-tool-v1.0.0
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --target "${GITHUB_SHA}" --title 'Nomad POS Android Signing Tool v1.0.0' --notes 'Offline Android signing utility. This is NOT an update of the Nomad POS app. Keep existing Nomad POS installed. The utility APK is debug-signed independently; your newly generated password-protected .p12 must remain private.'
+          gh release upload "$TAG" output/Nomad-POS-Android-Signing-Tool-v1.0.0.apk output/SHA256.txt --clobber
